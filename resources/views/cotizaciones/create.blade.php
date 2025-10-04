@@ -1,82 +1,109 @@
 @extends('layouts.app')
 
 @section('content')
-<style>
-    .cliente-option.exact {
-        border-left: 3px solid #28a745;
-    }
-    .cliente-option.similar {
-        border-left: 3px solid #ffc107;
-    }
-    .cliente-option:hover {
-        background-color: #f8f9fa !important;
-    }
-    #cliente_results {
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-</style>
+<div class="container py-4">
+    <h1 class="mb-4">
+        <i class="fas fa-file-invoice-dollar me-2 text-primary"></i> Nueva Cotización
+    </h1>
 
-<div class="container">
-    <h1>Nueva Cotización</h1>
+    <div class="card shadow-lg border-0">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-user me-2"></i> Selección de Cliente</h5>
+        </div>
+        <div class="card-body">
+            <form action="{{ route('cotizaciones.store') }}" method="POST">
+                @csrf
 
-    <form action="{{ route('cotizaciones.store') }}" method="POST">
-        @csrf
-        <div class="mb-3">
-            <label for="cliente_search" class="form-label">Cliente</label>
-            <div class="position-relative">
-                <input type="text" 
-                       id="cliente_search" 
-                       class="form-control" 
-                       placeholder="Buscar cliente por nombre o email..."
-                       autocomplete="off">
-                <input type="hidden" name="cliente_id" id="cliente_id" required>
-                <div id="cliente_results" class="position-absolute w-100 bg-white border rounded shadow-lg" 
-                     style="top: 100%; left: 0; z-index: 1000; display: none; max-height: 200px; overflow-y: auto;">
+                {{-- Cliente --}}
+                <div class="mb-4">
+                    <label for="cliente_search" class="form-label fw-bold">Cliente</label>
+                    <div class="input-group position-relative">
+                        <span class="input-group-text bg-light"><i class="fas fa-search"></i></span>
+                        <input type="text" 
+                               id="cliente_search" 
+                               class="form-control" 
+                               placeholder="Buscar cliente por nombre o correo..."
+                               autocomplete="off">
+                        <input type="hidden" name="cliente_id" id="cliente_id" required>
+                        <div id="cliente_results" 
+                             class="position-absolute w-100 bg-white border rounded shadow-sm mt-1"
+                             style="z-index: 1000; display: none; max-height: 200px; overflow-y: auto;">
+                        </div>
+                    </div>
+                    <div id="cliente_selected" class="mt-2" style="display: none;">
+                        <div class="alert alert-info d-flex justify-content-between align-items-center mb-0">
+                            <span id="cliente_selected_text"></span>
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="clear_cliente">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div id="cliente_selected" class="mt-2" style="display: none;">
-                <div class="alert alert-info d-flex justify-content-between align-items-center">
-                    <span id="cliente_selected_text"></span>
-                    <button type="button" class="btn btn-sm btn-outline-danger" id="clear_cliente">
-                        <i class="fas fa-times"></i>
+
+                {{-- Detalles --}}
+                <h4 class="fw-bold mb-3"><i class="fas fa-boxes me-2"></i> Detalles de Productos</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle">
+                        <thead class="table-primary">
+                            <tr>
+                                <th>Producto</th>
+                                <th style="width: 150px;">Cantidad</th>
+                                <th style="width: 200px;">Precio Unitario</th>
+                                <th style="width: 60px;" class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lineas">
+                            <tr class="linea">
+                                <td>
+                                    <select name="lineas[0][producto_id]" class="form-select producto-select" required>
+                                        <option value="">Seleccione producto</option>
+                                        @foreach($productos as $producto)
+                                            <option value="{{ $producto->producto_id }}" data-precio="{{ $producto->precio }}">
+                                                {{ $producto->nombre }} - ${{ number_format($producto->precio,2) }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" name="lineas[0][cantidad]" class="form-control" placeholder="0" min="1" required>
+                                </td>
+                                <td>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" step="0.01" name="lineas[0][precio_unitario]" class="form-control precio-input" placeholder="0.00" required>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger eliminar-linea">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- Botones --}}
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-outline-primary" id="agregar-linea">
+                        <i class="fas fa-plus"></i> Agregar línea
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i> Guardar Cotización
                     </button>
                 </div>
-            </div>
+            </form>
         </div>
-
-        <h3>Detalles</h3>
-        <div id="lineas">
-            <div class="linea row mb-2">
-                <div class="col">
-                    <select name="lineas[0][producto_id]" class="form-control producto-select" required>
-                        <option value="">Seleccione producto</option>
-                        @foreach($productos as $producto)
-                            <option value="{{ $producto->producto_id }}" data-precio="{{ $producto->precio }}">
-                                {{ $producto->nombre }} - ${{ number_format($producto->precio,2) }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col">
-                    <input type="number" name="lineas[0][cantidad]" placeholder="Cantidad" class="form-control" required>
-                </div>
-                <div class="col">
-                    <input type="number" step="0.01" name="lineas[0][precio_unitario]" placeholder="Precio" class="form-control precio-input" required>
-                </div>
-            </div>
-        </div>
-
-        <button type="button" class="btn btn-secondary mb-3" id="agregar-linea">Agregar línea</button>
-        <button type="submit" class="btn btn-success">Guardar Cotización</button>
-    </form>
+    </div>
 </div>
 
+{{-- Script --}}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     let lineaIndex = 1;
     let searchTimeout;
 
-    // Funcionalidad de búsqueda de clientes
+    // ====== Búsqueda de clientes ======
     const clienteSearch = document.getElementById('cliente_search');
     const clienteResults = document.getElementById('cliente_results');
     const clienteId = document.getElementById('cliente_id');
@@ -86,12 +113,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     clienteSearch.addEventListener('input', function() {
         const query = this.value.trim();
-        
         if (query.length < 2) {
             clienteResults.style.display = 'none';
             return;
         }
-
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
             searchClientes(query);
@@ -99,27 +124,21 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function searchClientes(query) {
-        // Mostrar indicador de carga
         clienteResults.innerHTML = `
             <div class="p-3 text-center text-muted">
-                <i class="fas fa-spinner fa-spin me-2"></i>
-                <div>Buscando clientes...</div>
+                <i class="fas fa-spinner fa-spin me-2"></i> Buscando clientes...
             </div>
         `;
         clienteResults.style.display = 'block';
 
         fetch(`{{ route('clientes.search') }}?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
-            .then(data => {
-                displayResults(data);
-            })
+            .then(data => displayResults(data))
             .catch(error => {
                 console.error('Error:', error);
                 clienteResults.innerHTML = `
                     <div class="p-3 text-center text-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <div>Error al buscar clientes</div>
-                        <small>Intenta de nuevo</small>
+                        <i class="fas fa-exclamation-triangle me-2"></i> Error al buscar clientes
                     </div>
                 `;
             });
@@ -129,34 +148,30 @@ document.addEventListener('DOMContentLoaded', function() {
         if (clientes.length === 0) {
             clienteResults.innerHTML = `
                 <div class="p-3 text-center text-muted">
-                    <i class="fas fa-search me-2"></i>
-                    <div>No se encontraron clientes</div>
-                    <small>Intenta con un nombre o email diferente</small>
+                    <i class="fas fa-search me-2"></i> No se encontraron clientes
                 </div>
             `;
         } else {
-            clienteResults.innerHTML = clientes.map((cliente, index) => {
+            clienteResults.innerHTML = clientes.map(cliente => {
                 const isExactMatch = !cliente.similarity_score;
-                const matchType = isExactMatch ? 'exact' : 'similar';
-                const matchIcon = isExactMatch ? 'fas fa-check-circle text-success' : 'fas fa-search text-warning';
+                const matchType = isExactMatch ? 'text-success' : 'text-warning';
+                const matchIcon = isExactMatch ? 'fas fa-check-circle' : 'fas fa-search';
                 const matchText = isExactMatch ? 'Coincidencia exacta' : 'Usuario parecido';
-                
+
                 return `
-                    <div class="p-2 border-bottom cliente-option ${matchType}" 
+                    <div class="p-2 border-bottom cliente-option" 
                          data-id="${cliente.id}" 
                          data-name="${cliente.name}" 
-                         data-email="${cliente.email}" 
-                         style="cursor: pointer; transition: background-color 0.2s;"
-                         onmouseover="this.style.backgroundColor='#f8f9fa'"
-                         onmouseout="this.style.backgroundColor=''">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
+                         data-email="${cliente.email}"
+                         style="cursor: pointer;">
+                        <div class="d-flex justify-content-between">
+                            <div>
                                 <div class="fw-bold">${cliente.name}</div>
                                 <small class="text-muted">${cliente.email}</small>
                             </div>
-                            <div class="text-end">
+                            <div class="text-end ${matchType}">
                                 <i class="${matchIcon} me-1"></i>
-                                <small class="text-muted">${matchText}</small>
+                                <small>${matchText}</small>
                             </div>
                         </div>
                     </div>
@@ -166,23 +181,19 @@ document.addEventListener('DOMContentLoaded', function() {
         clienteResults.style.display = 'block';
     }
 
-    // Seleccionar cliente
+    // Selección de cliente
     clienteResults.addEventListener('click', function(e) {
         const option = e.target.closest('.cliente-option');
         if (option) {
-            const id = option.dataset.id;
-            const name = option.dataset.name;
-            const email = option.dataset.email;
-            
-            clienteId.value = id;
+            clienteId.value = option.dataset.id;
             clienteSearch.value = '';
             clienteResults.style.display = 'none';
-            clienteSelectedText.textContent = `${name} (${email})`;
+            clienteSelectedText.textContent = `${option.dataset.name} (${option.dataset.email})`;
             clienteSelected.style.display = 'block';
         }
     });
 
-    // Limpiar selección
+    // Limpiar cliente seleccionado
     clearCliente.addEventListener('click', function() {
         clienteId.value = '';
         clienteSelected.style.display = 'none';
@@ -196,14 +207,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Funcionalidad de líneas de productos
+    // ====== Manejo de líneas de productos ======
+    const lineasTable = document.getElementById('lineas');
+
     document.getElementById('agregar-linea').addEventListener('click', function() {
-        const lineasDiv = document.getElementById('lineas');
-        const nuevaLinea = document.createElement('div');
-        nuevaLinea.classList.add('linea', 'row', 'mb-2');
-        nuevaLinea.innerHTML = `
-            <div class="col">
-                <select name="lineas[${lineaIndex}][producto_id]" class="form-control producto-select" required>
+        const nuevaFila = document.createElement('tr');
+        nuevaFila.classList.add('linea');
+        nuevaFila.innerHTML = `
+            <td>
+                <select name="lineas[${lineaIndex}][producto_id]" class="form-select producto-select" required>
                     <option value="">Seleccione producto</option>
                     @foreach($productos as $producto)
                         <option value="{{ $producto->producto_id }}" data-precio="{{ $producto->precio }}">
@@ -211,25 +223,43 @@ document.addEventListener('DOMContentLoaded', function() {
                         </option>
                     @endforeach
                 </select>
-            </div>
-            <div class="col">
+            </td>
+            <td>
                 <input type="number" name="lineas[${lineaIndex}][cantidad]" placeholder="Cantidad" class="form-control" required>
-            </div>
-            <div class="col">
-                <input type="number" step="0.01" name="lineas[${lineaIndex}][precio_unitario]" placeholder="Precio" class="form-control precio-input" required>
-            </div>
+            </td>
+            <td>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" step="0.01" name="lineas[${lineaIndex}][precio_unitario]" placeholder="Precio" class="form-control precio-input" required>
+                </div>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger eliminar-linea">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
         `;
-        lineasDiv.appendChild(nuevaLinea);
+        lineasTable.appendChild(nuevaFila);
         lineaIndex++;
     });
 
-    // Autocompletar precio al seleccionar producto
+    // Autocompletar precio según producto
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('producto-select')) {
             const precio = e.target.selectedOptions[0].getAttribute('data-precio');
-            const precioInput = e.target.closest('.linea').querySelector('.precio-input');
+            const precioInput = e.target.closest('tr').querySelector('.precio-input');
             if (precio && precioInput) {
                 precioInput.value = precio;
+            }
+        }
+    });
+
+    // Eliminar línea de producto
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.eliminar-linea')) {
+            const fila = e.target.closest('tr');
+            if (fila && lineasTable.children.length > 1) {
+                fila.remove();
             }
         }
     });

@@ -13,10 +13,11 @@
     </button>
 
     <!-- Tabla de productos -->
-    <table class="table table-striped">
+    <table class="table table-striped align-middle">
         <thead class="table-dark">
             <tr>
                 <th>ID</th>
+                <th>Imagen</th>
                 <th>Nombre</th>
                 <th>Precio</th>
                 <th>Stock</th>
@@ -27,6 +28,15 @@
             @foreach($productos as $producto)
             <tr>
                 <td>{{ $producto->producto_id }}</td>
+                <td>
+                    @if($producto->imagen)
+                        <img src="{{ asset('storage/' . $producto->imagen) }}" alt="{{ $producto->nombre }}" 
+                             style="width:50px; height:50px; object-fit:cover; border-radius:5px;">
+                    @else
+                        <img src="https://via.placeholder.com/50" alt="Sin imagen" 
+                             style="border-radius:5px;">
+                    @endif
+                </td>
                 <td>{{ $producto->nombre }}</td>
                 <td>${{ number_format($producto->precio, 2) }}</td>
                 <td>{{ $producto->stock }}</td>
@@ -48,7 +58,7 @@
             <!-- Modal Editar Producto -->
             <div class="modal fade" id="editModal{{ $producto->producto_id }}" tabindex="-1" aria-labelledby="editModalLabel{{ $producto->producto_id }}" aria-hidden="true">
                 <div class="modal-dialog">
-                    <form action="{{ route('productos.update', $producto->producto_id) }}" method="POST">
+                    <form action="{{ route('productos.update', $producto->producto_id) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         @method('PUT')
                         <div class="modal-content">
@@ -73,6 +83,17 @@
                                     <label>Stock</label>
                                     <input type="number" name="stock" class="form-control" value="{{ $producto->stock }}" required>
                                 </div>
+                                <div class="mb-3">
+                                    <label>Imagen</label>
+                                    @if($producto->imagen)
+                                        <div class="mb-2">
+                                            <img src="{{ asset('storage/' . $producto->imagen) }}" 
+                                                 alt="{{ $producto->nombre }}" style="width:100px; height:auto; border:1px solid #ccc; padding:3px;">
+                                        </div>
+                                    @endif
+                                    <input type="file" name="imagen" class="form-control" accept="image/*">
+                                    <small class="text-muted">Sube una nueva imagen para reemplazar la actual (jpg, jpeg, png, máx 2MB)</small>
+                                </div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -91,7 +112,7 @@
 <!-- Modal Crear Producto -->
 <div class="modal fade" id="createModal" tabindex="-1" aria-labelledby="createModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <form action="{{ route('productos.store') }}" method="POST">
+        <form action="{{ route('productos.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
             <div class="modal-content">
                 <div class="modal-header">
@@ -114,6 +135,11 @@
                     <div class="mb-3">
                         <label>Stock</label>
                         <input type="number" name="stock" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Imagen del Producto</label>
+                        <input type="file" name="imagen" class="form-control" accept="image/*">
+                        <small class="text-muted">Formatos permitidos: jpg, jpeg, png. Máx 2MB.</small>
                     </div>
                 </div>
                 <div class="modal-footer">

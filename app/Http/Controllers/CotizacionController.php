@@ -10,6 +10,7 @@ use App\Models\Auditoria;
 use App\Models\Producto;
 use App\Models\User;
 use App\Models\EstadoFactura;
+use App\Models\Venta;
 
 class CotizacionController extends Controller
 {
@@ -60,43 +61,83 @@ class CotizacionController extends Controller
      * Cambiar el estado de una cotización con validaciones
      */
     public function cambiarEstado($id, $estadoId)
-    {
-        $cotizacion = Cotizacion::with('estado')->findOrFail($id);
-        $nuevoEstado = EstadoFactura::findOrFail($estadoId);
-        
-        // Validar transiciones de estado
-        $transicionesValidas = $this->getTransicionesValidas($cotizacion->estado_id);
-        
-        if (!in_array($estadoId, $transicionesValidas)) {
-            return redirect()->back()->with('error', 
-                "No se puede cambiar de '{$cotizacion->estado->nombre_estado}' a '{$nuevoEstado->nombre_estado}'. Transición no válida.");
-        }
+{
+    $cotizacion = Cotizacion::with(['estado', 'lineas.producto'])->findOrFail($id);
+    $nuevoEstado = EstadoFactura::findOrFail($estadoId);
 
-        // Validaciones específicas por estado
-        if ($estadoId == 3 && $cotizacion->total <= 0) {
-            return redirect()->back()->with('error', 'No se puede marcar como vendido una cotización sin productos.');
-        }
-
-        if ($estadoId == 4 && $cotizacion->estado_id != 3) {
-            return redirect()->back()->with('error', 'Solo se puede facturar electrónicamente una cotización que esté en estado "Vendido".');
-        }
-
-        DB::transaction(function () use ($cotizacion, $estadoId, $nuevoEstado) {
-            $estadoAnterior = $cotizacion->estado->nombre_estado;
-            $cotizacion->update(['estado_id' => $estadoId]);
-
-            Auditoria::create([
-                'tabla'      => 'cotizaciones',
-                'accion'     => 'UPDATE',
-                'registro_id'=> $cotizacion->cotizacion_id,
-                'usuario'    => auth()->user()->name ?? 'sistema',
-                'detalle'    => "Estado cambiado de '{$estadoAnterior}' a '{$nuevoEstado->nombre_estado}'",
-            ]);
-        });
-
-        return redirect()->route('cotizaciones.show', $cotizacion->cotizacion_id)
-                         ->with('success', "Estado actualizado a '{$nuevoEstado->nombre_estado}' correctamente");
+    // Validar transiciones de estado
+    $transicionesValidas = $this->getTransicionesValidas($cotizacion->estado_id);
+    if (!in_array($estadoId, $transicionesValidas)) {
+        return redirect()->back()->with('error', 
+            "No se puede cambiar de '{$cotizacion->estado->nombre_estado}' a '{$nuevoEstado->nombre_estado}'.");
     }
+
+    // Validaciones específicas
+    if ($estadoId == 3 && $cotizacion->total <= 0) {
+        return redirect()->back()->with('error', 'No se puede vender una cotización sin productos.');
+    }
+
+    if ($estadoId == 4 && $cotizacion->estado_id != 3) {
+        return redirect()->back()->with('error', 'Solo se puede facturar una cotización vendida.');
+    }
+
+    DB::transaction(function () use ($cotizacion, $estadoId, $nuevoEstado) {
+
+        $estadoAnterior = $cotizacion->estado->nombre_estado;
+        $cotizacion->update(['estado_id' => $estadoId]);
+
+        // Si se marca como vendido, crear venta y descontar stock
+        if ($estadoId == 3) {
+            $totalVenta = 0;
+
+            // Crear venta con cliente y NIT/C.F. de la cotización
+            $venta = Venta::create([
+                'total' => 0, // temporal, se actualizará después
+                'estado_id' => 3, // Vendido pero no facturado
+                'cliente_id' => $cotizacion->cliente_id,
+                'nit_cf' => $cotizacion->nit_cf ?? null,
+            ]);
+
+            foreach ($cotizacion->lineas as $linea) {
+                $producto = $linea->producto;
+
+                // Validar stock
+                if ($producto->stock < $linea->cantidad) {
+                    throw new \Exception("No hay suficiente stock para {$producto->nombre}");
+                }
+
+                // Crear detalle de venta
+                $venta->detalles()->create([
+                    'producto_id' => $producto->producto_id,
+                    'cantidad' => $linea->cantidad,
+                    'precio_unitario' => $linea->precio_unitario,
+                ]);
+
+                // Descontar stock del producto
+                $producto->stock -= $linea->cantidad;
+                $producto->save();
+
+                $totalVenta += $linea->subtotal;
+            }
+
+            // Actualizar total de la venta
+            $venta->update(['total' => $totalVenta]);
+        }
+
+        // Registrar auditoría del cambio de estado
+        Auditoria::create([
+            'tabla' => 'cotizaciones',
+            'accion' => 'UPDATE',
+            'registro_id' => $cotizacion->cotizacion_id,
+            'usuario' => auth()->user()->name ?? 'sistema',
+            'detalle' => "Estado cambiado de '{$estadoAnterior}' a '{$nuevoEstado->nombre_estado}'",
+        ]);
+    });
+
+    return redirect()->route('cotizaciones.show', $cotizacion->cotizacion_id)
+                     ->with('success', "Estado actualizado a '{$nuevoEstado->nombre_estado}' correctamente");
+}
+
 
     /**
      * Obtener transiciones válidas de estado
